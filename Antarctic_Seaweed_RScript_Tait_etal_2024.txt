@@ -1,0 +1,1066 @@
+################################
+# Gattuso Coastal Light package
+################################
+library(Rtools4)
+library(ggplot2)
+library(CoastalLight)
+library(raster)
+library(terra)
+library(ggmap)
+library(dplyr)
+library(ggspatial)
+library(ncdf4)
+
+library(devtools)
+
+install_github('jpgattuso/CoastalLight')
+
+########################################################################################
+#Download data
+cl_DownloadData(month=00, DownloadGeo=TRUE, dirdata= "C:/Users/taitlw/Documents/R/CoastalLight")
+
+cl_DownloadData(month=00, DownloadGeo=TRUE, dirdata= "./CoastalLight.d")
+
+Whole_world <- cl_GetData(lon = c(-180, 180), lat= c(-90, 90), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 1)
+plot(Whole_world)
+
+########################################################################################
+## Trying to combine area of pixels (geo file) with light data
+library(ncdf4)
+library(raster)
+library(rgdal)
+
+geo.df <- nc_open("C:/Users/taitlw/Documents/R/CoastalLight/CoastalLight_geo.nc")
+
+area.df <- ncvar_get(geo.df, "area")
+dim(area.df) 
+
+Geo_file <- nc_open("C:/Users/taitlw/Documents/R/CoastalLight/CoastalLight_geo.nc")
+Light_file <- nc_open("C:/Users/taitlw/Documents/R/CoastalLight/CoastalLight_00.nc")
+
+var_names <- c('Susceptible', 'Infected', 'Recovered', 'Inhabitable')
+
+for (var_name in var_names) {
+  
+  # Create raster stack
+  x <- stack(
+    raster("C:/Users/taitlw/Documents/R/CoastalLight/CoastalLight_geo.nc", varname = var_name),
+    raster("C:/Users/taitlw/Documents/R/CoastalLight/CoastalLight_00.nc", varname = var_name))
+  
+  # Name each layer
+  names(x) <- c('01', '02') 
+  
+  writeRaster(x = x, 
+              filename = paste0(var_name, '_out.nc'),
+              overwrite = TRUE, 
+              format = 'CDF')
+}
+########################################################################################
+##Broad scale scripts
+#Antarctica
+Antarctica <- cl_GetData(lon = c(-180, 180), lat= c(-80, -60), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+ ### change latitude parameters for analysis
+par(mfrow=c(2,2))
+
+cl_PlotData(Antarctica)
+
+Antarctica.df <- as.data.frame(Antarctica$data) 
+
+Ant.df <- Antarctica.df %>%
+  rename(x = longitude, y= latitude, z =depth) %>% na_if("NaN")
+
+Ant3.df <- mutate(Ant.df, Depth_f = ifelse(z < -91.7904, NA, z)) %>% ####CHANGE PARAmters/ depth
+  mutate(NPP = Depth_f*0.0878+8.0592)
+
+sum(Ant3.df$NPP*390600, na.rm=T)
+
+  # Surface area within light thresholds
+cl_surface("Antarctic", E = c(0.01, 0.02, 0.1, 1), type= "s") # ! 0.02 for Himanthothallus !
+cl_surface("Arctic", E = c(0.01, 0.02, 0.1, 1), type= "s") # ! 0.02 for Himanthothallus !
+########################################################################################
+
+#Ross Sea
+Ross_Sea <- cl_GetData(lon = c(160.0, 172.1), lat= c(-80, -68), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+# New working
+Adare <- cl_GetData(lon = c(168.0, 172.0), lat= c(-71.6, -71.2), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+Possession <- cl_GetData(lon = c(169.5, 172.0), lat= c(-72.2, -71.6), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+Hallet <- cl_GetData(lon = c(169.5, 171), lat= c(-73, -72.2), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+Coulman <- cl_GetData(lon = c(166.0, 171), lat= c(-74, -73), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+Wood <- cl_GetData(lon = c(164.5, 171), lat= c(-74.6, -74), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+
+
+Ross_Sea_2 <- cl_GetData(lon = c(155.0, 160), lat= c(-70, -69), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+
+
+########################################################################################
+Ant <- cl_GetData(lon = c(-180.0, 180), lat= c(-75, -60), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+
+
+cl_surface("Antarctic", E = c(0.01, 0.02, 0.1, 1), type= "s")
+
+cl_surface("Antarctic", E = c(0.01), type= "s")
+
+cl_PlotData(Ross_Sea)
+
+#Possession
+Possession_ann <- cl_GetData(lon = c(169.0, 172), lat= c(-73, -71.0), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+
+Possession_Jan <- cl_GetData(lon = c(162.0, 172), lat= c(-78, -68.0), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 1)
+
+cl_PlotData(Possession_ann)
+########################################################################################
+
+# Data.frame and raster processing
+Possession.df <- as.data.frame(Ant$data) # "Ross_Sea" / or "Ant"
+# New working
+Possession.df <- as.data.frame(Adare$data)
+Possession.df <- as.data.frame(Possession$data)
+Possession.df <- as.data.frame(Hallet$data)
+Possession.df <- as.data.frame(Coulman$data)
+Possession.df <- as.data.frame(Ross_Sea$data)
+
+
+
+
+
+
+# turn missing Kd values into regional mean
+Possession.df[["kdpar"]][is.na(Possession.df[["kdpar"]])] <- 0.099
+
+# Gap filling of parbottom values i.e., EBED
+Possession_2.df <- Possession.df %>% 
+  mutate(EBED = par*(exp(kdpar*depth)))
+
+Possession_3.df<-within(Possession_2.df, parbottom[is.na(parbottom)] <- EBED[is.na(parbottom)])
+#############################################################################
+## OLd transformations
+# Leave parbottom as is, replace missing values with EBED
+Possession_3.df<-within(Possession_2.df, parbottom[is.na(parbottom)] <- EBED[is.na(parbottom)])
+
+# Plot EBED vs parbottom, EBED frequently over-estimates PAR
+ggplot(Possession_3.df, aes(x=parbottom, y=EBED))+
+  geom_point()
+#############################################################################
+# name changing of df
+Poss.df <- Possession_2.df %>%
+  rename(x = longitude, y= latitude, z =depth) %>% na_if("NaN")
+
+e <- extent(Poss.df[,1:2])
+
+r <- raster(e, ncol = 834, nrow = 834) # IMPORTANT number of df.rows / 119
+#############################################################################  
+## Old transformations
+Poss3.df <- Poss.df %>% 
+  mutate(Depth_f = ifelse(z < -91.7904, NA, z)) %>% 
+  mutate(NPP = Depth_f*0.0878+8.0592) %>% rename(Depth=z, EBed=parbottom) 
+  
+Poss3.df <- mutate(Poss.df, a = -0.0175*z+0.2333, 
+                  Pm = -0.25*z+5.3333, R = -0.005*z-3.9, 
+                  EBed_s = (parbottom/24/60/60)*1000*1000,
+                  Biomass = 6.407*z+496.23)  # R = -0.004*z^2+0.15*z-5.2 Resp as polynomial
+#############################################################################  
+## Old transformations
+#Himantothallus Derigibius (spring parameters)
+Poss3.df <- mutate(Poss.df, a = 1.2, 
+                   Pm = 40.5, 
+                   R = -7, 
+                   EBed_s = (parbottom/24/60/60)*1000*1000,
+                   Biomass =(6.407*z+496.23)/8.33) #Linear 6.407*z+496.23
+
+#Red alga Derigibius (spring parameters)
+Poss3.df <- mutate(Poss.df, a = 0.75, 
+                   Pm = 63.1, 
+                   R = -15, 
+                   EBed_s = (parbottom/24/60/60)*1000*1000,
+                   Biomass =(6.407*z+496.23)/8.33) #Linear 6.407*z+496.23
+ 
+#############################################################################  
+## Old transformations
+
+#Himantothallus Brouwer (mean)
+Poss3.df <- mutate(Possession_3.df, a = 2.5, 
+                   Pm = 37.1, 
+                   R = -3.1, 
+                   EBed_s = (parbottom/24/60/60)*1000*1000) 
+           
+#Himantothallus Brouwer (spring parameters)
+Poss3.df <- mutate(Possession_3.df, a = 3.1, 
+                   Pm = 40.5, 
+                   R = -4.2, 
+                   EBed_s = (parbottom/24/60/60)*1000*1000) 
+#Red alga Brouwer (spring parameters)
+Poss3.df <- mutate(Possession_3.df, a = 6, 
+                   Pm = 63.1, 
+                   R = -10, 
+                   EBed_s = (parbottom/24/60/60)*1000*1000) 
+#Coralline  Schwartz
+Poss3.df <- mutate(Possession_3.df, a = 4.6, 
+                   Pm = 13.83, 
+                   R = -0.43, 
+                   EBed_s = (parbottom/24/60/60)*1000*1000) 
+############################################################################# 
+
+Poss3.df <- mutate(Possession_3.df, EBed_s = (parbottom/24/60/60)*1000*1000) 
+
+Poss3.df <- mutate(Possession.df, EBed_s = (parbottom/24/60/60)*1000*1000) 
+
+
+a_Hg <- 2.5
+R_Hg <- -3.1
+Pm_Hg <- 37.1
+
+a_Pa <- 6
+R_Pa <- -10
+Pm_Pa <- 63.1
+
+a_Co <- 4.6
+R_Co <- -0.43
+Pm_Co <- 13.83
+
+
+
+
+############################################################################# 
+## Old transformations
+#Himantothallus Gomez 1997
+Poss3.df <- mutate(Poss.df, a = 0.675, 
+                   Pm = 10, 
+                   R = -3.5, 
+                   EBed_s = (parbottom/24/60/60)*1000*1000,
+                   Biomass =(6.407*z+496.23)/8.33) #Linear 6.407*z+496.23
+
+#Palmaria Gomez 1997
+Poss3.df <- mutate(Poss.df, a = 1.0, 
+                   Pm = 10, 
+                   R = -3.7, 
+                   EBed_s = (parbottom/24/60/60)*1000*1000,
+                   Biomass =(6.407*z+496.23)/8.33) #Linear 6.407*z+496.23
+
+#Gigartina Gomez 1997
+Poss3.df <- mutate(Poss.df, a = 0.63, 
+                   Pm = 11.3, 
+                   R = -2, 
+                   EBed_s = (parbottom/24/60/60)*1000*1000,
+                   Biomass =(6.407*z+496.23)/8.33) #Linear 6.407*z+496.23
+#############################################################################  
+# Additional df mutations
+Poss3.df <- mutate(Possession_3.df, EBed_s = (parbottom/24/60/60)*1000*1000) 
+
+Poss4.df <- mutate(Poss3.df,  NPP_Hg = (Pm_Hg*(1-exp(-a_Hg*EBed_s/Pm_Hg))+R_Hg), 
+                   NPP_Pa = (Pm_Pa*(1-exp(-a_Pa*EBed_s/Pm_Pa))+R_Pa), 
+                   NPP_Co = (Pm_Co*(1-exp(-a_Co*EBed_s/Pm_Co))+R_Co)) #NPP umol 02 gDW-1 h-1
+
+Poss5.df <- mutate(Poss4.df,  NPP_Hg_2 = ((((NPP_Hg)*24*31)/1000))*32/1000,
+                   NPP_Pa_2 = ((((NPP_Pa)*24*31)/1000))*32/1000,
+                   NPP_Co_2 = ((((NPP_Co)*24*31)/1000))*32/1000) #kg C m2 month 
+
+Poss6.df <- mutate(Poss5.df,  NPP_Hg_3 = ifelse(NPP_Hg_2 < 0, NA, NPP_Hg_2),
+                   NPP_Pa_3 = ifelse(NPP_Pa_2 < 0, NA, NPP_Pa_2),
+                   NPP_Co_3 = ifelse(NPP_Co_2 < 0, NA, NPP_Co_2))
+
+Poss7.df <- mutate(Poss6.df, Latitude = latitude*-1)
+
+
+Poss8.df <- mutate(Poss7.df,  area=(-0.00404*Latitude^2-0.265*Latitude+56.201)*100000)
+
+
+
+
+Poss9.df <- mutate(Poss8.df,  NPP_Hg_4 = NPP_Hg_3*area,
+                   NPP_Pa_4 = NPP_Pa_3*area,
+                   NPP_Co_4 = NPP_Co_3*area)
+
+# summary stats
+sum(Poss6.df$NPP_Hg_3, na.rm = TRUE)
+sum(Poss6.df$NPP_Pa_3, na.rm = TRUE)
+sum(Poss6.df$NPP_Co_3, na.rm = TRUE)
+
+sum(Poss9.df$NPP_Hg_4, na.rm = TRUE)
+sum(Poss9.df$NPP_Pa_4, na.rm = TRUE)
+sum(Poss9.df$NPP_Co_4, na.rm = TRUE)
+
+
+mean(Poss6.df$NPP_Hg_3, na.rm = TRUE)
+mean(Poss6.df$kdpar, na.rm = TRUE)
+
+mean(Possession.df$kdpar, na.rm = TRUE)
+mean(Poss6.df$NPP_Hg_2, na.rm = TRUE)
+
+# surface area within thresholds
+cl_surface(Ross_Sea, E = c(0.01, 0.02, 0.1, 1), type= "s") # ! 0.02 for Himanthothallus !
+cl_surface(Ross_Sea,  E = c(0.01, 0.02, 0.1, 1), type= "Sg")
+
+cl_surface("Antarctic", E = c(0.01, 0.02, 0.1, 1), type= "s") # ! 0.02 for Himanthothallus !
+
+cl_surface("Antarctic", E = c(0.001,0.04, 0.098, 0), type= "s") # ! 0.02 for Himanthothallus !
+
+
+# Calculating average compensation depth
+Comp.df <- Poss5.df %>% filter(between (NPP_Hg_2, -0.005,0.005))
+
+ggplot(Comp.df, aes(x=depth, y=NPP_Hg_2))+
+  geom_point() +
+  geom_smooth(method="lm")
+
+comp_fit <- lm(depth~NPP_Hg_2, data=Comp.df) 
+
+mean_comp <- mean(Comp.df$depth)
+sd_comp <- sd(Comp.df$depth)
+
+
+
+#Plotting NPP vs depth
+ggplot(Poss5.df, aes(x=depth, y=NPP_Hg_2))+
+  geom_point(size=2) +
+  #geom_smooth(method="gam", colour="red", formula = y ~ s(x,k=5))+
+  geom_hline(aes(yintercept=0), linetype= "longdash", size=2.0, colour="red")+
+  geom_vline(aes(xintercept=mean_comp), linetype= "longdash", size=2.0, colour="green")+ 
+  geom_vline(aes(xintercept=mean_comp-sd_comp), linetype= "solid", size=1, colour="green")+
+  geom_vline(aes(xintercept=mean_comp+sd_comp), linetype= "solid", size=1, colour="green")+#SD = 6.4
+    theme(text= element_text(size = 36, family =myFont1))+
+  theme(panel.border = element_rect(size=2, fill=NA))+
+  xlim(0, -150)
+
+ggplot(Poss5.df, aes(NPP_Hg_2))+
+  geom_histogram(bins=50)+
+  geom_vline(aes(xintercept=0), linetype= "longdash", size=1.0, colour="red")
+
+
+ggsave("Hg.tiff",
+       width= 5000,
+       height= 2500,
+       #plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+
+
+##
+
+Comp.df <- Poss5.df %>% filter(between (NPP_Pa_2, -0.005,0.005))
+
+mean_comp <- mean(Comp.df$depth)
+sd_comp <- sd(Comp.df$depth)
+
+
+ggplot(Poss5.df, aes(x=depth, y=NPP_Pa_2))+
+  geom_point(size=2) +
+  #geom_smooth(method="gam", colour="red", formula = y ~ s(x,k=5))+
+  geom_hline(aes(yintercept=0), linetype= "longdash", size=2.0, colour="red")+
+  geom_vline(aes(xintercept=mean_comp), linetype= "longdash", size=2.0, colour="green")+
+  geom_vline(aes(xintercept=mean_comp-sd_comp), linetype= "solid", size=1, colour="green")+
+  geom_vline(aes(xintercept=mean_comp+sd_comp), linetype= "solid", size=1, colour="green")+ #SD = 6.6
+  theme(text= element_text(size = 36, family =myFont1))+
+  theme(panel.border = element_rect(size=2, fill=NA))+
+  xlim(0, -150)
+
+ggsave("Pa.tiff",
+       width= 5000,
+       height= 2500,
+       #plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+
+
+ggplot(Poss5.df, aes(NPP_Pa_2))+
+  geom_histogram(bins=50)+
+  geom_vline(aes(xintercept=0), linetype= "longdash", size=1.0, colour="red")
+
+##
+Comp.df <- Poss5.df %>% filter(between (NPP_Co_2, -0.001,0.001))
+
+mean_comp <- mean(Comp.df$depth )
+sd_comp <- sd(Comp.df$depth)
+
+
+ggplot(Poss5.df, aes(x=depth, y=NPP_Co_2))+
+  geom_point(size=2) +
+  #geom_smooth(method="gam", colour="red", formula = y ~ s(x,k=5))+
+  geom_hline(aes(yintercept=0), linetype= "longdash", size=2.0, colour="red")+
+  geom_vline(aes(xintercept=mean_comp), linetype= "longdash", size=2.0, colour="green")+
+  geom_vline(aes(xintercept=mean_comp-sd_comp), linetype= "solid", size=1, colour="green")+
+  geom_vline(aes(xintercept=mean_comp+sd_comp), linetype= "solid", size=1, colour="green")+ #SD = 10.9
+  theme(text= element_text(size = 36, family =myFont1))+
+  theme(panel.border = element_rect(size=2, fill=NA))+
+  xlim(0, -150)
+
+
+ggsave("Co.tiff",
+       width= 5000,
+       height= 2500,
+       #plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+
+ggplot(Poss5.df, aes(NPP_Co_2))+
+  geom_histogram(bins=50)+
+  geom_vline(aes(xintercept=0), linetype= "longdash", size=1.0, colour="red")
+
+
+
+
+ggplot(Poss5.df, aes(x=parbottom, y=NPP_Hg_2))+
+  geom_point() +
+  #geom_smooth(method="loess")+
+  geom_hline(aes(yintercept=0), linetype= "longdash", size=1.0, colour="red")+
+  theme(text= element_text(size = 16, family =myFont1))#+
+  #xlim(0, -150)
+
+
+y =ax +b
+
+x = (y-b)/a
+
+x = (0--10)/6
+
+
+a_Hg <- 2.5
+R_Hg <- -3.1
+Pm_Hg <- 37.1
+
+a_Pa <- 6
+R_Pa <- -10
+Pm_Pa <- 63.1
+
+a_Co <- 4.6
+R_Co <- -0.43
+Pm_Co <- 13.83
+
+
+ggplot(Poss5.df, aes(NPP_Hg_2))+
+  geom_histogram(bins=50)+
+  scale_y_continuous(trans='sqrt')
+  #xlim(0,1)
+
+sum(Poss6.df$NPP_3, na.rm = TRUE)
+
+
+ggplot(Poss4.df, aes(x=depth))+
+  #geom_point() +
+  #geom_smooth(method="loess")+
+  geom_hline(aes(yintercept=0), linetype= "longdash", size=1.0, colour="red")+
+  theme(text= element_text(size = 16, family =myFont1))+
+  geom_smooth(method="loess", aes(y=NPP_Hg, color = "green")) + 
+  geom_smooth(method="loess", aes(y=NPP_Pa, color="red")) + 
+  geom_smooth(method="loess", aes(y=NPP_Co, color="blue")) +
+  xlim(0, -200)
+
+
+
+#####################################################################
+## Rasterising data
+NPP_ras <- rasterize(Poss3.df[, 1:2], r, Poss3.df$NPP, fun="first")
+
+PAR_bottom <- rasterize(Poss.df[, 1:2], r, Poss.df$parbottom, fun="first")
+Depth <- rasterize(Poss.df[, 1:2], r, Poss.df$z, fun="first")
+PAR <- rasterize(Poss.df[, 1:2], r, Poss.df$par, fun="first")
+KdPAR <- rasterize(Poss.df[, 1:2], r, Poss.df$kdpar, fun="first")
+# number refer to columns, fun="first" required for columns 5 and 6 due to "NA"s
+# x <- rasterize(Poss.df[, 1:2], r, Poss.df[,6], fun=mean)
+
+plot(PAR_bottom)
+plot(Depth)
+#####################################################################
+## Regional specific transects and light data
+#Transect Possession
+vertices <- list(c(171.35, -71.8), c(171.0,-72.05))
+
+cl_Transect(Ross_Sea, vertices, plt=TRUE)
+
+#Transect Adare
+vertices <- list(c(170.25, -71.55), c(171.5,-71.45))
+
+cl_Transect(Possession_ann, vertices, plt=TRUE)
+
+#Transect Hallet
+vertices <- list(c(170, -72.31), c(171.0,-72.31))
+
+cl_Transect(Possession_ann, vertices, plt=TRUE)
+
+#Transect Wood Bay
+vertices <- list(c(165, -74.4), c(166.0,-74.3))
+
+cl_Transect(Ross_Sea_2, vertices, plt=TRUE)
+
+# North of Adare
+vertices <- list(c(166.7, -70.8), c(167.7,-70.5))
+
+cl_Transect(Ross_Sea_2, vertices, plt=TRUE)
+
+# Daniel_Pen
+vertices <- list(c(167.9, -73.75), c(166.1,-74.7))
+
+cl_Transect(Ross_Sea_2, vertices, plt=TRUE)
+
+# North of Wood_Bay
+vertices <- list(c(163.8, -74.78), c(164.4,-74.78))
+
+cl_Transect(Ross_Sea_2, vertices, plt=TRUE)
+
+# Durville
+vertices <- list(c(157.75, -69.25), c(157.75,-69.1))
+
+cl_Transect(Ross_Sea_2, vertices, plt=TRUE)
+
+#####################################################################
+## Antarctic peninsula
+
+Ant_peninsula <- cl_GetData(lon = c(-65, -61), lat= c(-65, -64), what = c("depth", "par", "kdpar", "parbottom"), dir="C:/Users/taitlw/Documents/R/CoastalLight", month = 0)
+
+par(mfrow=c(2,2))
+cl_PlotData(Ant_peninsula)
+
+vertices <- list(c(-63.8, -64.5), c(-64.3,-64.4))
+
+
+cl_Transect(Ant_peninsula, vertices, plt=TRUE)
+##NEW NPP calc's and curve fitting
+# x = light intensity mol m-2 day-1
+# y = 
+
+par(mfrow=c(1,1))
+
+df <- data.frame(x=c(11.85, 6.95, 2.8, 0.955), y=c(7.38, 7.04, 5.38, 3.94))
+fit1 <- lm(y~x, data=df)
+fit2 <- lm(y~poly(x,2,raw=TRUE), data=df)
+fit3 <- lm(y~poly(x,3,raw=TRUE), data=df)
+fit4 <- lm(y~poly(x,4,raw=TRUE), data=df)
+fit5 <- lm(y~poly(x,5,raw=TRUE), data=df)
+
+plot(df$x, df$y, pch=19, xlab='x', ylab='y')
+
+x_axis <- seq(1, 15, length=15)
+
+lines(predict(fit1, data.frame(x=x_axis)), col='green')
+lines(predict(fit2, data.frame(x=x_axis)), col='red')
+lines(predict(fit3, data.frame(x=x_axis)), col='purple')
+lines(predict(fit4, data.frame(x=x_axis)), col='blue')
+lines( predict(fit5, data.frame(x=x_axis)), col='orange')
+
+summary(fit3)
+
+#####################################################################
+## Plotting site specific light stats
+library(cowplot)
+
+
+
+Transects <- read.csv("C:/Users/taitlw/OneDrive - NIWA/Antarctic_Seaweed_manuscript/Data/Light_transects_ANT.csv", sep = ",", header = TRUE, na.strings =c("","NA"))
+
+theme_set(
+  theme_classic() +
+    theme(legend.position = "top") +
+    theme(panel.background = element_rect(fill = "white", colour = "grey50")) +
+    theme(strip.placement = "outside"))
+
+myFont1 <- "Calibri"
+
+p1 <- ggplot(Transects, aes(x=Depth, y=EBED))+ #, colour=Region_2
+  facet_wrap(~Region_2) +
+  geom_hline(aes(yintercept=0.2), linetype= "longdash", size=1, colour="black")+
+  geom_hline(aes(yintercept=0.1), linetype= "longdash", size=1, colour="red")+
+  geom_point(size=2)+
+  theme(axis.title= element_text(size=20), axis.text =element_text(size=16), legend.text =element_text(size=16), legend.title= element_text(size=20))+
+  geom_smooth(method="loess", fullrange=TRUE, size=2, colour="black") +
+  #scale_color_viridis(discrete = TRUE, option = "D")+ 
+  #geom_smooth(method="gam", formula = y ~ s(x,k=5), aes(fill=Region),  fullrange=FALSE, colour="black") +  
+  scale_y_continuous(trans='log')+ 
+  theme(text= element_text(size = 16, family =myFont1))+
+  xlim(40,100) + ylim(0,0.75)
+
+ggsave("Light_Transects.tiff",
+       width= 8000,
+       height= 4000,
+       plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+
+
+p2 <- ggplot(Transects, aes(x=Region, y=KDPAR, colour=Region))+
+  scale_color_viridis(discrete = TRUE, option = "D")+ 
+  theme(text= element_text(size = 12, family =myFont1))+
+  theme(legend.position="none")+
+  scale_x_discrete(limits = c("Peninsula", "Dumont_Durville", "Oates", "Cape_Adare","Possession_Island", "Possession_Islands", "Cape_Hallet", "Daniel_Pen", "N_Wood_Bay", "Wood_Bay", "Terra_Nova"))+
+  geom_boxplot()
+
+p3 <- ggplot(Transects, aes(x=Region, y=PAR, colour=Region))+
+  scale_color_viridis(discrete = TRUE, option = "D")+ 
+  theme(text= element_text(size = 12, family =myFont1))+
+  theme(legend.position="none")+
+  scale_x_discrete(limits = c("Peninsula", "Dumont_Durville", "Oates", "Cape_Adare","Possession_Island","Possession_Islands", "Cape_Hallet", "Daniel_Pen", "N_Wood_Bay", "Wood_Bay", "Terra_Nova"))+
+  geom_boxplot()
+
+p4 <- ggplot(Transects, aes(x=Region, y=EBED, colour=Region))+
+  scale_color_viridis(discrete = TRUE, option = "D")+ 
+  theme(text= element_text(size = 12, family =myFont1))+
+  theme(legend.position="none")+
+  scale_x_discrete(limits = c("Peninsula", "Dumont_Durville", "Oates", "Cape_Adare","Possession_Island","Possession_Islands", "Cape_Hallet", "Daniel_Pen", "N_Wood_Bay", "Wood_Bay", "Terra_Nova"))+
+  geom_boxplot()
+  
+p1 + annotation_custom(ggplotGrob(p2), xmin = 60, xmax = 100, ymin = 0.3, ymax = 0.75)
+
+bottom_row <- plot_grid(p2, p3, labels = c('B', 'C'), align = 'h', rel_widths = c(1, 1))
+
+plot_grid(p1, bottom_row, labels = c('A', 'B', 'C'), ncol=1)
+
+
+#####################################################################
+# Map and raster plotting
+#####################################################################
+library(maptools)
+data(wrld_simpl)
+antarctica <-  wrld_simpl[wrld_simpl$NAME == "Antarctica", ]
+plot(antarctica)
+
+library(rgdal)
+## define a sensible projection
+pr <- "+proj=laea +lat_0=-90 +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"
+antarctica.laea <- spTransform(antarctica, CRS(pr))
+
+plot(antarctica.laea)
+
+install.packages("devtools") # I guess you also need this
+devtools::install_github("ropensci/rnaturalearthhires")
+library("rnaturalearth")
+
+df <- read.csv("C:/Users/taitlw/OneDrive - NIWA/Antarctic_Seaweed_manuscript/WORKING/TAN2101_coords.csv", sep = ",", header = TRUE, na.strings =c("","NA"))
+
+theme_set(
+  theme_classic() +
+    theme(legend.position = "top") +
+    theme(panel.background = element_rect(fill = "white", colour = "grey50")) +
+    theme(strip.placement = "outside"))
+
+world <- ne_countries(scale = "large", returnclass = "sf")
+myFont1 <- "Calibri"
+
+Whole_Region <- ggplot() +
+  geom_raster(data = Poss3.df, aes(x=longitude, y=latitude, fill=depth)) +
+  scale_fill_viridis() +
+  geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(164, 172.5), ylim=c(-71.2, -75)) +
+  theme(text= element_text(size = 14, family =myFont1))+
+  labs(x="Longitude", y="Latitude") +
+  annotation_scale(location = "br", width_hint = 0.5) +
+  annotation_north_arrow(location = "br", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_minimal) 
+
+
+# Depth
+p1 <- ggplot() +
+      geom_raster(data = Poss3.df, aes(x=longitude, y=latitude, fill=depth)) +
+      scale_fill_viridis() +
+      geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(164.5, 173), ylim=c(-71.2, -74.6)) +
+      theme(text= element_text(size = 28, family =myFont1))+
+      labs(x="Longitude", y="Latitude") +
+      annotation_scale(location = "br", width_hint = 0.5) +
+      annotation_north_arrow(location = "br", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_minimal) +
+  scale_x_continuous(breaks = xlabs, labels = paste0(xlabs,'°E')) +
+  scale_y_continuous(breaks = ylabs, labels = paste0(ylabs,'°S')) +
+  geom_point(data = df, aes(SUB1_Lon, SUB1_Lat), size=4,fill="red", shape=21, color="black" ) 
+
+ggsave("Depth.tiff",
+       width= 4000,
+       height= 6000,
+       plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+
+
+p2 <- ggplot() +
+  geom_raster(data = Poss3.df, aes(x=longitude, y=latitude, fill=depth)) +
+  scale_fill_viridis() +
+  geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(170.0, 171.5), ylim=c(-71.3, -72.2)) +
+  theme(text= element_text(size = 16, family =myFont1), legend.position="none")+
+  labs(x="", y="") +
+  #scale_x_continuous(breaks = xlabs2, labels = paste0(xlabs2,'°E')) +
+  #scale_y_continuous(breaks = ylabs2, labels = paste0(ylabs2,'°S')) +
+  annotation_scale(location = "br", width_hint = 0.5)  +
+  geom_point(data = df, aes(SUB1_Lon, SUB1_Lat), size=2,fill="red", shape=21, color="black" ) 
+
+
+
+p1 + annotation_custom(ggplotGrob(p2), xmin = 164.5, xmax = 168.8, ymin = -73.0, ymax = -71.1)
+
+#####################################################################
+# NPP
+p3 <- ggplot() +
+      geom_raster(data = Poss3.df, aes(x=x, y=y, fill=NPP)) +
+      scale_fill_viridis(option="inferno") +
+      geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+      coord_sf(xlim=c(165, 172.0), ylim=c(-71.2, -74)) +
+      theme(text= element_text(size = 14, family =myFont1))+
+      labs(x="Longitude", y="Latitude") +
+      annotation_scale(location = "br", width_hint = 0.5) +
+      annotation_north_arrow(location = "br", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_minimal) 
+
+p4 <- ggplot() +
+  geom_raster(data = Poss3.df, aes(x=x, y=y, fill=NPP)) +
+  scale_fill_viridis(option="inferno") +
+  geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(168.0, 171.5), ylim=c(-71.0, -73)) +
+  theme(text= element_text(size = 8, family =myFont1), legend.position="none")+
+  labs(x="", y="") +
+  annotation_scale(location = "br", width_hint = 0.5)  
+
+
+p3 + annotation_custom(ggplotGrob(p4), xmin = 164.8, xmax = 169.3, ymin = -73.0, ymax = -71.2)
+
+
+ggsave("Light_Transects.tiff",
+       width= 4000,
+       height= 2000,
+       plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+#####################################################################
+
+# NPP_2
+xlabs = seq(165, 173, 2)
+ylabs = seq(-74.5, -71.5,1)
+
+xlabs2 = seq(168, 171.5, 1)
+ylabs2 = seq(-73, -71.0,1)
+
+xlabs3 = seq(165, 170.0, 1)
+ylabs3 = seq(-74.5, -73.5,0.5)
+
+
+p3 <- ggplot() +
+  geom_raster(data = Poss6.df, aes(x=longitude, y=latitude, fill=NPP_3)) +
+  #scale_color_divergent(Poss6.df$NPP, low="blue", mid="white", high="red", midpoint=0) +
+  scale_fill_viridis(option="inferno") +
+  #scale_fill_divergent(Poss6.df$NPP, low=scales::muted("blue"), mid=scales::muted("white"), high=scales::muted("red"), midpoint=0) +
+  geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(164.5, 171.2), ylim=c(-71.2, -74.6)) +
+  theme(text= element_text(size = 14, family =myFont1))+
+  labs(x="Longitude", y="Latitude") +
+  scale_x_continuous(breaks = xlabs, labels = paste0(xlabs,'°E')) +
+  scale_y_continuous(breaks = ylabs, labels = paste0(ylabs,'°S')) +
+  annotation_scale(location = "br", width_hint = 0.5) +
+  annotation_north_arrow(location = "br", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_minimal) +
+  geom_point(data = df, aes(SUB1_Lon, SUB1_Lat), size=1.5,fill="green", shape=21, color="black" ) 
+
+
+p4 <- ggplot() +
+  geom_raster(data = Poss6.df, aes(x=longitude, y=latitude, fill=NPP_3)) +
+  scale_fill_viridis(option="inferno") +
+  geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(168.0, 171.5), ylim=c(-71.0, -73)) +
+  theme(text= element_text(size = 14, family =myFont1), legend.position="none")+
+  labs(x="", y="") +
+  scale_x_continuous(breaks = xlabs2, labels = paste0(xlabs2,'°E')) +
+  scale_y_continuous(breaks = ylabs2, labels = paste0(ylabs2,'°S')) +
+  annotation_scale(location = "br", width_hint = 0.5)  +
+  geom_point(data = df, aes(SUB1_Lon, SUB1_Lat), size=3,fill="green", shape=21, color="black" ) 
+
+
+ggplot() +
+  geom_raster(data = Poss6.df, aes(x=longitude, y=latitude, fill=NPP_3)) +
+  scale_fill_viridis(option="inferno") +
+  geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(164.7, 170), ylim=c(-73.3, -74.5)) +
+  theme(text= element_text(size =14, family =myFont1), legend.position="none")+
+  labs(x="", y="") +
+  scale_x_continuous(breaks = xlabs3, labels = paste0(xlabs3,'°E')) +
+  scale_y_continuous(breaks = ylabs3, labels = paste0(ylabs3,'°S')) +
+  annotation_scale(location = "br", width_hint = 0.5)  +
+  geom_point(data = df, aes(SUB1_Lon, SUB1_Lat), size=3,fill="green", shape=21, color="black" ) 
+
+
+ggplot() +
+  geom_raster(data = Poss6.df, aes(x=longitude, y=latitude, fill=NPP_3)) +
+  scale_fill_viridis(option="inferno") +
+  geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(164.5, 168.5), ylim=c(-73.5, -74.5)) +
+  theme(text= element_text(size = 8, family =myFont1), legend.position="none")+
+  labs(x="", y="") +
+  geom_point(data = df, aes(SUB1_Lon, SUB1_Lat), size=2,fill="red", shape=21, color="black" )+
+  annotation_scale(location = "br", width_hint = 0.5)  
+
+p3 + annotation_custom(ggplotGrob(p4), xmin = 164.8, xmax = 169.3, ymin = -73.0, ymax = -71.1)
+
+#############################################################################################
+## Working here!!!
+# EBed
+p5 <- ggplot() +
+      geom_raster(data = Poss3.df, aes(x=longitude, y=latitude,  fill=EBed_s)) +
+      scale_fill_viridis(option="inferno", #"mako"
+                         breaks = c(0.0,0.5, 1), 
+                         limits=c(0.0, 1.0), 
+                         oob=scales::squish) +
+      geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+      coord_sf(xlim=c(164.5, 171.2), ylim=c(-71.2, -74.6)) +
+      theme(text= element_text(size = 14, family =myFont1), legend.position = "top")+
+      labs(x="Longitude", y="Latitude") +
+      annotation_scale(location = "br", width_hint = 0.5) +
+      annotation_north_arrow(location = "br", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_minimal)  +
+  scale_x_continuous(breaks = xlabs, labels = paste0(xlabs,'°E')) +
+  scale_y_continuous(breaks = ylabs, labels = paste0(ylabs,'°S')) +
+  geom_point(data = df, aes(SUB1_Lon, SUB1_Lat), size=2,fill="green", shape=21, color="black" ) 
+
+
+ggsave("whole.tiff",
+       width= 8000,
+       height= 8000,
+       #plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+
+xlabs = seq(165, 171, 2)
+ylabs = seq(-74.5, -71.5,1)
+
+
+xlabs2 = seq(169, 171.4, 1)
+ylabs2 = seq(-72.0, -71.2,1)
+
+###############################################################################################
+p6 <- ggplot() +
+  geom_raster(data = Poss3.df,aes(x=longitude, y=latitude,  fill=EBed_s)) +
+  scale_fill_viridis(option="inferno", 
+                     breaks = c(0.0,0.5, 1), 
+                     limits=c(0.0, 1), 
+                     oob=scales::squish) +
+  geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(169.0, 171.5), ylim=c(-71.2, -72.0)) +
+  theme(text= element_text(size = 14, family =myFont1), legend.position="none")+
+  labs(x="", y="") +
+  scale_x_continuous(breaks = xlabs2, labels = paste0(xlabs2,'°E')) +
+  scale_y_continuous(breaks = ylabs2, labels = paste0(ylabs2,'°S')) +
+  annotation_scale(location = "br", width_hint = 0.5)  +
+  geom_point(data = df, aes(SUB1_Lon, SUB1_Lat), size=4,fill="green", shape=21, color="black" )
+  
+ggsave("Adare.tiff",
+       width= 4300,
+       height= 4300,
+       #plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+
+
+p7 <- ggplot() +
+  geom_raster(data = Poss3.df,aes(x=longitude, y=latitude,  fill=EBed_s)) +
+  scale_fill_viridis(option="inferno", 
+                     breaks = c(0.0,0.5, 1), 
+                     limits=c(0.0, 1), 
+                     oob=scales::squish) +
+  geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(169.5, 171.0), ylim=c(-72.25, -72.75)) +
+  theme(text= element_text(size = 14, family =myFont1), legend.position="none")+
+  labs(x="", y="") +
+  scale_x_continuous(breaks = xlabs3, labels = paste0(xlabs3,'°E')) +
+  scale_y_continuous(breaks = ylabs3, labels = paste0(ylabs3,'°S')) +
+  annotation_scale(location = "br", width_hint = 0.5)  +
+  geom_point(data = df, aes(SUB1_Lon, SUB1_Lat), size=4,fill="green", shape=21, color="black" )
+
+xlabs3 = seq(169.5, 171.0, 1)
+ylabs3 = seq(-72.75, -72.25,1)
+
+ggsave("Hallet.tiff",
+       width= 2500,
+       height= 2500,
+       #plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+
+p8 <- ggplot() +
+  geom_raster(data = Poss3.df,aes(x=longitude, y=latitude,  fill=EBed_s)) +
+  scale_fill_viridis(option="inferno", 
+                     breaks = c(0.5, 1), 
+                     limits=c(0.05, 1), 
+                     oob=scales::squish) +
+  geom_sf(data= world, colour ="black", fill="grey85", size=0.2) +
+  coord_sf(xlim=c(165.0, 166.0), ylim=c(-74.25, -74.6)) +
+  theme(text= element_text(size = 14, family =myFont1), legend.position="none")+
+  labs(x="", y="") +
+  scale_x_continuous(breaks = xlabs4, labels = paste0(xlabs4,'°E')) +
+  scale_y_continuous(breaks = ylabs4, labels = paste0(ylabs4,'°S')) +
+  annotation_scale(location = "br", width_hint = 0.5)  +
+  geom_point(data = df, aes(SUB1_Lon, SUB1_Lat), size=4,fill="green", shape=21, color="black" )
+
+xlabs4 = seq(165, 166.0, 1)
+ylabs4 = seq(-74.6, -74.25,1)
+
+ggsave("Wood.tiff",
+       width= 2500,
+       height= 2500,
+       #plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+
+
+p5 + annotation_custom(ggplotGrob(p6), xmin = 164.8, xmax = 169.3, ymin = -73.0, ymax = -71.1)
+
+
+
+print(p)
+
+
+#####################################################################
+
+crs(PAR_bottom) <- "+proj=longlat"
+crs(Depth) <- "+proj=longlat"
+
+Possession_ras <- writeRaster(x = Depth, 
+                        #bylayer= TRUE, #writes all layers/bands separately
+                        filename="C:/Users/taitlw/Desktop/Depth2.tif", #"C:/Users/taitlw/Desktop/Seagrass_Test2.grd", 
+                        format = "GTiff", 
+                        #datatype = 'INT2S',
+                        overwrite = TRUE) # FLT4S
+
+Possession_ras <- writeRaster(x = PAR_bottom, 
+                              #bylayer= TRUE, #writes all layers/bands separately
+                              filename="C:/Users/taitlw/Desktop/PAR_bottom2.tif", #"C:/Users/taitlw/Desktop/Seagrass_Test2.grd", 
+                              format = "GTiff", 
+                              #datatype = 'INT2S',
+                              overwrite = TRUE) # FLT4S
+
+#####################################################################
+
+
+
+crs(NPP_ras) <- "+proj=longlat"
+
+Ross_ras <- writeRaster(x = NPP_ras, 
+                              #bylayer= TRUE, #writes all layers/bands separately
+                              filename="C:/Users/taitlw/Desktop/NPP_Ross.tif", #"C:/Users/taitlw/Desktop/Seagrass_Test2.grd", 
+                              format = "GTiff", 
+                              #datatype = 'INT2S',
+                              overwrite = TRUE) # FLT4S
+
+
+
+ggplot(Poss3.df, aes(x=x, y=y, fill=NPP)) + 
+  geom_tile() + 
+  coord_equal()+ 
+  scale_fill_viridis(limits = c(0.0,20))
+
+
+sum(Poss3.df$NPP*390600, na.rm=T)
+
+#####################################################################
+#Old seaweed pie charts
+df <- read.csv("C:/Users/taitlw/Desktop/TAN2101_Algae.csv", sep = ",", header = TRUE, na.strings =c("","NA"))
+
+
+pie<- ggplot(df, aes(x="", y=Presence, fill=Group))+
+  facet_wrap(~Site) + geom_col(color="black")+
+   coord_polar("y", start=0)
+pie
+
+pie + scale_fill_manual(values=c("#CC6633", "#FF66CC", "#33CC33", "#660033"))#Pink, red, brown, green
+
+#####################################################################
+#TAN2101_Transect_data
+RS <- read.csv("C:/Users/taitlw/OneDrive - NIWA/Antarctic_Seaweed_manuscript/WORKING/ASP_1.csv", sep = ",", header = TRUE, na.strings =c("","NA"))
+
+
+RS <- read.csv("C:/Users/taitlw/OneDrive - NIWA/Antarctic_Seaweed_manuscript/WORKING/Antarctic_Seaweeds_TAN2101_3.csv", sep = ",", header = TRUE, na.strings =c("","NA"))
+
+RS <- read.csv("C:/Users/taitlw/Desktop/Antarctic_Seaweeds_TAN2101_minus_FLESHY.csv", sep = ",", header = TRUE, na.strings =c("","NA"))
+
+
+theme_set(
+  theme_classic() +
+    theme(legend.position = "top") +
+    theme(panel.background = element_rect(fill = "white", colour = "grey50")) +
+    theme(strip.placement = "outside")) 
+
+
+
+p<- ggplot(RS, aes(x=Depth_bin, y=Density_4, fill=Taxa))+
+  #geom_point(aes(colour=Taxa), size=3)+
+  facet_wrap(~Region) + 
+  geom_col(color="black")+#, width = 1.5)+#+
+  scale_y_continuous()+
+  ylab("Density m2") + xlab("Depth bin (m)") +
+ #scale_fill_manual(values = c("#CC6633", "#660080","#CC6655", "#660033", "#FF66CC", "#33CC33", "#CC79A7"))+
+  scale_fill_manual(values = c("#CC6633", "#660080", "#33CC33", "#E69F00", "#CC79A7", "#660033","#FF66CC"))+
+  #scale_fill_viridis(discrete=TRUE)+
+  #scale_colour_viridis(discrete=TRUE)+
+  scale_x_continuous(limits=c(0,130))+
+  theme(axis.title= element_text(size=18), axis.text =element_text(size=16), legend.text =element_text(size=16), legend.title= element_text(size=16))
+  
+
+p
+
+p<- ggplot(RS, aes(x=Depth_bin, y=Density_2, fill=Taxa))+
+  #geom_point(aes(colour=Taxa), size=3)+
+  facet_wrap(~Region) + 
+  geom_bar(stat="identity",color="black", position="dodge")+#, width = 1.5)+#+
+  scale_y_continuous(trans="sqrt")+
+  ylab("Density m2") + xlab("Depth bin (m)") +
+  #scale_fill_manual(values = c("#CC6633", "#660080","#CC6655", "#660033", "#FF66CC", "#33CC33", "#CC79A7"))+
+  scale_fill_manual(values = c("#CC6633", "#660080", "#33CC33", "#E69F00", "#CC79A7", "#660033","#FF66CC"))+
+  #scale_fill_viridis(discrete=TRUE)+
+  #scale_colour_viridis(discrete=TRUE)+
+  scale_x_continuous(limits=c(0,130))+
+  geom_errorbar(aes(ymin=Density_2-sd, ymax=Density_2+sd), width=.2) +
+  theme(axis.title= element_text(size=18), axis.text =element_text(size=16), legend.text =element_text(size=16), legend.title= element_text(size=16))
+
+
+p
+
+
+Pie_data <- read.csv("C:/Users/taitlw/Desktop/Pie_data.csv", sep = ",", header = TRUE, na.strings =c("","NA"))
+
+
+pie<- ggplot(Pie_data, aes(x="", y=Presence, fill=Taxa))+
+  facet_wrap(~Site, ncol=6) + geom_col(color="black")+
+  coord_polar("y", start=0) +
+  #scale_y_continuous(trans='sqrt')+
+  scale_fill_manual(values = c("#CC6633", "#660080", "#33CC33", "#E69F00", "#CC79A7", "#660033","#FF66CC"))+
+theme(axis.title= element_text(size=18), axis.text =element_text(size=16), legend.text =element_text(size=16), legend.title= element_text(size=18))
+
+pie
+
+ggsave("Pie.tiff",
+       width= 4000,
+       height= 4000,
+       #plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
+
+
+
+ggplot(RS, aes(x=Depth, y=Density_4,fill=Taxa))+
+  geom_point(size=3)+
+  #geom_point(aes(colour=Taxa), size=3)+
+  facet_wrap(~Taxa) +
+  scale_x_continuous(limits=c(0,150))+
+  scale_y_continuous(trans='sqrt', limits=c(0,1))+
+  theme(axis.title= element_text(size=28), axis.text =element_text(size=24), legend.text =element_text(size=24), legend.title= element_text(size=28))+
+  #scale_fill_manual(values = c("#CC6633", "#FF66CC","#660080", "#33CC33", "#E69F00", "#CC79A7", "#660033"))+
+  scale_fill_manual(values = c("#CC6633", "#660080", "#33CC33", "#E69F00", "#CC79A7", "#660033","#FF66CC"))+
+  #geom_smooth(method="gam", formula = y ~ s(x,k=20), aes(fill=Anom), fullrange=FALSE, colour="black") + 
+  geom_smooth(method="gam", formula = y ~ s(x,k=12),  fullrange=T, colour="black")  #aes(fill=Anom),
+  
+
+ggsave("Regression.tiff",
+       width= 7000,
+       height= 2500,
+       #plot=p1,
+       units=c("px"),
+       path="C:/Users/taitlw/Desktop",
+       dpi = 300)
